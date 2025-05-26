@@ -1,0 +1,6 @@
+env/
+__pycache__/
+*.pyc
+.streamlit/secrets.toml
+data_protection_malawi.txt
+malawi_data_protection_act.pdf
