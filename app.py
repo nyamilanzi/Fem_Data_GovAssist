@@ -7,6 +7,10 @@ api_key = st.secrets.get("OPENAI_API_KEY")
 # Set up the OpenAI client
 client = OpenAI(api_key=api_key)
 
+# Set up memory for multi-turn chat
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+
 st.set_page_config(page_title="Fem_GovAssist Pro", layout="wide")
 
 st.title("Fem_GovAssist Pro: Data Governance Copilot for Malawi")
@@ -17,20 +21,29 @@ if menu == "Legal Q&A":
     st.header("Ask a Data Governance Question")
     query = st.text_area("Enter your question:")
     if st.button("Submit", key="qa_submit"):
-        def get_law_context():
-            with open("data_protection_malawi.txt", "r") as f:
-                return f.read()[:4000]  # keep it under token limit
+        # Load the law context only once (system message)
+        if not any(msg["role"] == "system" for msg in st.session_state.messages):
+           context = get_law_context()
+           st.session_state.messages.insert(0, {
+              "role": "system",
+              "content": f"You are an expert on Malawi's Data Protection Act (2024). Use this context:\n\n{context}"
+            })
 
-        context = f"You are an expert on Malawi's Data Protection Act (2024). Refer to the following law excerpt when answering:\n\n{get_law_context()}"
+        # Append the user's new message
+        st.session_state.messages.append({"role": "user", "content": query})
+
+        #Call the model with full history
         response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": context},
-                {"role": "user", "content": query}
-            ]
+        model="gpt-3.5-turbo",
+        messages=st.session_state.messages
         )
-        st.markdown("**Answer:**")
-        st.write(response.choices[0].message.content)
+
+        reply = response.choices[0].message.content
+        st.session_state.messages.append({"role": "assistant", "content": reply})
+
+        # Display response
+        st.markdown("**Fem_GovAssist says:**")
+        st.write(reply)
 
 elif menu == "Consent Form Generator":
     st.header("Generate a Consent Form")
